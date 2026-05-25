@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>카공내비 — 실시간 카페 매칭</title>
+  <meta name="description" content="카공족을 위한 실시간 카페 작업 공간 매칭 내비게이션 앱">
+
+  <!-- Google Fonts & Pretendard CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <!-- Pretendard: primary font for the app -->
+  <link rel="stylesheet" as="style" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  <style>
+    /* Ensure Pretendard loads as first priority */
+    *, *::before, *::after { font-family: 'Pretendard', 'Noto Sans KR', -apple-system, sans-serif; }
+  </style>
+
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+  <!-- ============================================================
+       🔑 KAKAO MAP API KEY 설정 안내
+       ============================================================
+       아래 YOUR_KAKAO_JS_KEY 부분을 실제 카카오 JavaScript 앱 키로 
+       교체해 주세요. 
+       
+       카카오 개발자 콘솔(https://developers.kakao.com)에서 
+       애플리케이션 생성 후 JavaScript 키를 복사하세요.
+       
+       예시: appkey=abc123def456
+       ============================================================ -->
+  <script type="text/javascript"
+    src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=c30def18f0d6850956fb5371a1a86a12&libraries=services&autoload=false"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="./style.css?v=29">
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP SHELL — Mobile-first centered container
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="app">
+
+    <!-- ======================================================
+         SPLASH SCREEN & LOGIN FLOW
+         ====================================================== -->
+    <section id="view-splash">
+
+      <!-- Step 1: Role Selection -->
+      <div class="splash-step" id="splash-step-role">
+        <div class="splash-logo-section" style="margin-bottom: 32px;">
+          <div class="splash-logo-icon" style="font-size:48px;">☕</div>
+          <h1 class="splash-logo-title" style="font-size:26px;">카공내비</h1>
+        </div>
+        <div class="role-grid">
+          <div class="role-card" id="role-user">
+            <span class="role-icon">☕</span>
+            <span class="role-label">카공족입니다</span>
+            <span class="role-desc">카페에서 작업할래요</span>
+          </div>
+          <div class="role-card" id="role-boss">
+            <span class="role-icon">👑</span>
+            <span class="role-label">사장님입니다</span>
+            <span class="role-desc">매장을 관리할래요</span>
+          </div>
+        </div>
+        <span class="guest-link" id="guest-link">가입 없이 둘러보기 (Guest Mode)</span>
+      </div>
+
+      <!-- Step 2: Social Login -->
+      <div class="splash-step" id="splash-step-social">
+        <div class="onboarding-title" style="margin-bottom:24px;">간편 로그인</div>
+        <div class="splash-social-buttons">
+          <button class="splash-social-btn kakao" id="splash-login-kakao">
+            <span class="social-icon-mini kakao-icon">K</span>
+            카카오로 시작하기
+          </button>
+          <button class="splash-social-btn naver" id="splash-login-naver">
+            <span class="social-icon-mini naver-icon">N</span>
+            네이버로 시작하기
+          </button>
+          <button class="splash-social-btn google" id="splash-login-google">
+            <span class="social-icon-mini google-icon">G</span>
+            Google로 시작하기
+          </button>
+        </div>
+        <button class="splash-back-btn" id="splash-back-social">
+          <span class="material-icons-round" style="font-size:16px;">arrow_back</span> 돌아가기
+        </button>
+      </div>
+
+      <!-- Step 3: Onboarding Checklist -->
+      <div class="splash-step" id="splash-step-checklist">
+        <div class="onboarding-title">어떤 작업을 할 예정인가요?</div>
+        <div class="onboarding-subtitle">선택하면 맞춤 필터가 자동으로 켜져요!</div>
+        <div class="checklist-grid" id="checklist-grid">
+          <div class="checklist-item" data-purpose="notebook">
+            <span class="check-icon"></span>
+            <span>💻 노트북</span>
+          </div>
+          <div class="checklist-item" data-purpose="team">
+            <span class="check-icon"></span>
+            <span>👥 모임</span>
+          </div>
+          <div class="checklist-item" data-purpose="study">
+            <span class="check-icon"></span>
+            <span>📚 카공</span>
+          </div>
+          <div class="checklist-item" data-purpose="reading">
+            <span class="check-icon"></span>
+            <span>📖 독서</span>
+          </div>
+        </div>
+        <button class="btn-splash-submit" id="btn-checklist-submit">시작하기</button>
+      </div>
+
+      <!-- Step 4: Boss Verification -->
+      <div class="splash-step" id="splash-step-boss">
+        <div class="boss-verify-section">
+          <div style="font-size:48px; text-align:center; margin-bottom:16px;">👑</div>
+          <div class="boss-verify-title">사장님 인증</div>
+          <div class="boss-verify-subtitle">사업자 등록번호를 입력해 주세요</div>
+          <input type="text" class="boss-verify-input" id="boss-verify-input" placeholder="사업자 등록번호 10자리 입력 (- 제외)" inputmode="numeric" maxlength="10">
+          <button class="btn-splash-submit" id="btn-boss-verify-submit">인증하고 시작하기</button>
+          <button class="splash-back-btn" id="splash-back-boss" style="margin-top:16px; align-self:center;">
+            <span class="material-icons-round" style="font-size:16px;">arrow_back</span> 돌아가기
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         VIEW 2: HOME SCREEN (MAP + BOTTOM SHEET + NAV)
+         ====================================================== -->
+    <section class="view" id="view-home">
+
+      <!-- Kakao Map Container -->
+      <div class="map-container" id="kakao-map"></div>
+
+      <!-- ── Top Overlay: Filters Only ── -->
+      <div class="top-overlay">
+        <div class="filter-chips-scroll">
+          <div class="filter-chips" id="filter-chips">
+            <button class="chip" data-filter="콘센트">🔌 콘센트</button>
+            <button class="chip" data-filter="단체석">👥 단체석</button>
+            <button class="chip" data-filter="주차">🅿️ 주차</button>
+            <button class="chip" data-filter="와이파이">📶 와이파이</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Indicator -->
+      <div id="nav-indicator" class="nav-indicator" style="display: none;">
+        <span class="nav-indicator-icon">📍</span>
+        <span id="nav-indicator-text">신촌역점에서 해당 카페로 안내 중...</span>
+        <button id="btn-cancel-nav" class="btn-cancel-nav">취소</button>
+      </div>
+
+      <!-- ── My Location Button ── -->
+      <button class="btn-my-location" id="btn-my-location">
+        <span class="material-icons-round">my_location</span>
+      </button>
+
+      <!-- ── Bottom Sheet ── -->
+      <div class="sheet-overlay" id="sheet-overlay"></div>
+      <div class="bottom-sheet" id="bottom-sheet">
+        <div class="sheet-handle"><span></span></div>
+        <div class="sheet-collapsed" id="sheet-collapsed">
+          <!-- Filled by JS -->
+        </div>
+        <div class="sheet-expanded" id="sheet-expanded">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- ── Cafe Detail Modal ── -->
+      <div class="cafe-detail-overlay" id="cafe-detail-overlay"></div>
+      <div class="cafe-detail-modal" id="cafe-detail-modal">
+        <button class="btn-close-modal" id="btn-close-modal">
+          <span class="material-icons-round">close</span>
+        </button>
+        <div id="cafe-detail-content">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================
+         VIEW 3: SEARCH SCREEN
+         ====================================================== -->
+    <section class="view" id="view-search" style="display: none; background-color: var(--bg-white); overflow-y: auto;">
+      <div class="header-nav">
+        <h2>검색</h2>
+      </div>
+      <div class="search-page-content">
+        <div class="search-input-wrapper">
+          <span class="material-icons-round">search</span>
+          <input type="text" id="search-tab-input" placeholder="카페 이름 또는 지역 검색">
+        </div>
+        <div class="search-category-grid" id="search-category-chips">
+          <button class="search-chip" data-category="공부하기 좋은">
+            <span class="category-icon">📚</span>
+            <span class="category-label">공부하기 좋은</span>
+          </button>
+          <button class="search-chip" data-category="작업하기 좋은">
+            <span class="category-icon">💻</span>
+            <span class="category-label">작업하기 좋은</span>
+          </button>
+          <button class="search-chip" data-category="대화하기 좋은">
+            <span class="category-icon">🗣️</span>
+            <span class="category-label">대화하기 좋은</span>
+          </button>
+          <button class="search-chip" data-category="분위기 좋은">
+            <span class="category-icon">✨</span>
+            <span class="category-label">분위기 좋은</span>
+          </button>
+        </div>
+        <div class="recent-searches" id="recent-searches-section">
+          <h3>최근 검색어</h3>
+          <div class="recent-tags" id="recent-tags">
+            <span class="tag" data-query="신촌역 카페">신촌역 카공</span>
+            <span class="tag" data-query="연세대 정문 카페">연세대 정문</span>
+            <span class="tag" data-query="스타벅스">스타벅스</span>
+          </div>
+        </div>
+        <div class="search-results" id="search-results" style="display: none;">
+          <h3 id="search-results-title">검색 결과</h3>
+          <div id="search-results-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         VIEW 4: FAVORITES SCREEN
+         ====================================================== -->
+    <section class="view" id="view-favorites" style="display: none; background-color: var(--bg-white); overflow-y: auto;">
+      <div class="header-nav">
+        <h2>내 즐겨찾기 목록</h2>
+      </div>
+      <div class="favorites-list" id="favorites-list">
+        <!-- Dynamically rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ======================================================
+         VIEW 5: MY PAGE SCREEN
+         ====================================================== -->
+    <section class="view" id="view-mypage" style="display: none; background-color: var(--bg-white); overflow-y: auto;">
+      <div class="header-nav" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>마이페이지</h2>
+        <button id="btn-logout" class="btn-logout" style="background: none; border: none; color: var(--accent-brown); font-size: 14px; font-weight: 600; cursor: pointer; padding: 0;">로그아웃</button>
+      </div>
+      
+      <!-- Boss Center Entry Banner -->
+      <div class="boss-entry-banner" id="btn-enter-boss">
+        <div class="boss-entry-info">
+          <span class="boss-icon">👑</span>
+          <div class="boss-text-group">
+            <span class="boss-title">사장님 센터 입장</span>
+            <span class="boss-subtitle">실시간 매장 혼잡도 및 좌석 관리</span>
+          </div>
+        </div>
+        <span class="material-icons-round chevron">chevron_right</span>
+      </div>
+
+      <div class="profile-card">
+        <div class="avatar"><span class="material-icons-round">person</span></div>
+        <div class="profile-info">
+          <h3 id="profile-name">서원규</h3>
+          <p id="profile-email">wongyu.seo@yonsei.ac.kr</p>
+        </div>
+        <button class="btn-edit-profile" id="btn-edit-profile">
+          <span class="material-icons-round" style="font-size:18px;">edit</span>
+          프로필 수정
+        </button>
+      </div>
+
+      <div class="menu-list">
+        <div class="menu-item">
+          <span class="material-icons-round menu-icon">manage_accounts</span>
+          <span class="menu-text">회원 정보 관리</span>
+          <span class="material-icons-round chevron">chevron_right</span>
+        </div>
+        <div class="menu-item accordion-trigger" data-target="mypage-reviews">
+          <span class="material-icons-round menu-icon">rate_review</span>
+          <span class="menu-text">내 리뷰 관리</span>
+          <span class="material-icons-round chevron">expand_more</span>
+        </div>
+        <div class="accordion-content" id="mypage-reviews">
+          <p class="empty-state">아직 작성한 리뷰가 없습니다.</p>
+        </div>
+
+        <div class="menu-item accordion-trigger" data-target="mypage-support">
+          <span class="material-icons-round menu-icon">headset_mic</span>
+          <span class="menu-text">고객 센터</span>
+          <span class="material-icons-round chevron">expand_more</span>
+        </div>
+        <div class="accordion-content" id="mypage-support">
+          <ul class="support-links">
+            <li>FAQ (자주 묻는 질문)</li>
+            <li>1:1 문의하기</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         VIEW 6: BOSS OWNER DASHBOARD SCREEN
+         ====================================================== -->
+    <section class="view" id="view-boss" style="display: none; background-color: var(--bg-white); overflow-y: auto;">
+      <div class="header-nav" style="display: flex; align-items: center; justify-content: space-between;">
+        <button class="btn-back-mypage" id="btn-boss-back" style="background: none; border: none; color: var(--terracotta); display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 15px; cursor: pointer; padding: 0;">
+          <span class="material-icons-round" style="font-size: 20px;">chevron_left</span>돌아가기
+        </button>
+        <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: var(--gray-800);">매장 관리 (사장님 전용)</h2>
+        <div style="width: 60px;"></div> <!-- spacer to balance the back button -->
+      </div>
+
+      <div class="boss-dashboard-content" style="padding: 20px;">
+        <!-- Store Name Header Card -->
+        <div class="boss-card store-profile-card">
+          <div class="store-info">
+            <span class="material-icons-round store-icon">storefront</span>
+            <div>
+              <h3>스타벅스 신촌점</h3>
+              <p class="store-address">서울특별시 서대문구 연세로 10</p>
+            </div>
+          </div>
+          <span class="status-badge live">실시간 연동 중</span>
+        </div>
+
+        <!-- Section 1: 매장 세부 인프라 설정 (Overhauled) -->
+        <div class="boss-card">
+          <div class="card-header">
+            <span class="material-icons-round">chair</span>
+            <h4>매장 세부 인프라 설정</h4>
+          </div>
+          <div class="boss-infra-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-item">
+              <label class="manual-label" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--gray-700);">좌석 수 (Total Seats)</label>
+              <div class="stepper-container" id="stepper-seats">
+                <button class="stepper-btn" data-action="minus">−</button>
+                <input type="number" inputmode="numeric" class="stepper-value" id="boss-seats-count" value="48" data-value="48">
+                <button class="stepper-btn" data-action="plus">+</button>
+              </div>
+            </div>
+            <div class="input-item">
+              <label class="manual-label" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--gray-700);">콘센트 수 (Outlets)</label>
+              <div class="stepper-container" id="stepper-outlets">
+                <button class="stepper-btn" data-action="minus">−</button>
+                <input type="number" inputmode="numeric" class="stepper-value" id="boss-outlets-count" value="24" data-value="24">
+                <button class="stepper-btn" data-action="plus">+</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="select-item" style="margin-bottom: 16px;">
+            <label for="boss-wifi-availability" class="manual-label" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--gray-700);">와이파이 제공 여부</label>
+            <select id="boss-wifi-availability" style="width: 100%; padding: 10px; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); font-size: 14px; background: white; box-sizing: border-box;">
+              <option value="high">고속 5G 보안 와이파이</option>
+              <option value="secured">일반 와이파이</option>
+              <option value="none">미제공</option>
+            </select>
+          </div>
+          
+          <div class="toggle-item" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span class="bold-text" style="font-weight: 600; font-size: 14px; color: var(--gray-800);">주차 가능 여부</span>
+            <label class="switch">
+              <input type="checkbox" id="boss-parking-toggle" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          
+          <!-- Parking Sub-panel -->
+          <div id="boss-parking-subpanel" class="parking-subpanel">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="parking-type-selection">
+                <span class="manual-label" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--gray-700);">주차 형태</span>
+                <div style="display: flex; gap: 16px;">
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; color: var(--gray-700);">
+                    <input type="checkbox" id="parking-type-surface" checked style="accent-color: var(--accent-brown);"> 노면 주차
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; color: var(--gray-700);">
+                    <input type="checkbox" id="parking-type-mechanical" style="accent-color: var(--accent-brown);"> 기계식 주차
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label for="boss-parking-capacity" class="manual-label" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--gray-700);">주차 대수</label>
+                <input type="number" id="boss-parking-capacity" min="0" value="5" placeholder="예: 5" style="width: 100%; padding: 10px; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); font-size: 14px; box-sizing: border-box;">
+              </div>
+            </div>
+          </div>
+          
+          <button class="btn-boss-save" id="btn-save-infra">저장</button>
+        </div>
+
+        <!-- Section 2: POS 실시간 연동 (The Killer Feature) -->
+        <div class="boss-card">
+          <div class="card-header">
+            <span class="material-icons-round">point_of_sale</span>
+            <h4>POS 실시간 연동</h4>
+          </div>
+          <div class="toggle-item pos-toggle-container">
+            <div>
+              <span class="bold-text">상황 실시간 공유 (POS 연동)</span>
+              <p class="helper-text">체크 시 포스기 결제 데이터와 연동하여 현재 손님 수와 혼잡도를 지도에 자동으로 반영합니다.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="boss-pos-toggle" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- POS Active State Info -->
+          <div class="pos-status-info" id="pos-status-active">
+            <div class="pos-live-badge">
+              <span class="pulse-dot"></span>
+              <span>POS 연동 중 (현재 12명)</span>
+            </div>
+          </div>
+
+          <!-- Manual Selection (shown when POS is toggled OFF) -->
+          <div class="pos-manual-select" id="pos-manual-select-container" style="display: none; margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 16px;">
+            <label class="manual-label">수동 혼잡도 설정</label>
+            <div class="congestion-radios">
+              <label class="congestion-radio-label">
+                <input type="radio" name="manual-congestion" value="green" checked>
+                <span class="radio-custom green">🟢 여유</span>
+              </label>
+              <label class="congestion-radio-label">
+                <input type="radio" name="manual-congestion" value="yellow">
+                <span class="radio-custom yellow">🟡 보통</span>
+              </label>
+              <label class="congestion-radio-label">
+                <input type="radio" name="manual-congestion" value="red">
+                <span class="radio-custom red">🔴 혼잡</span>
+              </label>
+            </div>
+            <button class="btn-boss-save" id="btn-save-congestion" style="margin-top: 12px; width: 100%;">혼잡도 저장</button>
+          </div>
+        </div>
+
+        <!-- Section 3: 기타 기본 설정 -->
+        <div class="boss-card">
+          <div class="card-header">
+            <span class="material-icons-round">settings</span>
+            <h4>기타 기본 설정</h4>
+          </div>
+          <div class="toggle-item" style="margin-bottom: 20px;">
+            <span>영업 상태</span>
+            <div class="status-toggle-buttons">
+              <button class="btn-status-toggle active" id="btn-status-open" data-status="open">영업 중</button>
+              <button class="btn-status-toggle" id="btn-status-closed" data-status="closed">영업 종료</button>
+            </div>
+          </div>
+          <div class="notice-input-group">
+            <label for="boss-notice-input" class="manual-label">오늘의 한줄 공지</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="boss-notice-input" placeholder="예: 오늘 와이파이 점검으로 인터넷이 느립니다." value="오늘 와이파이 점검으로 인터넷이 느립니다.">
+              <button class="btn-boss-notice-submit" id="btn-submit-notice">등록</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Bottom Navigation (Moved Outside of view-home) ── -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="nav-item active" data-tab="home" id="nav-home">
+        <span class="material-icons-round">home</span>
+        <span class="nav-label">홈</span>
+      </button>
+      <button class="nav-item" data-tab="search" id="nav-search">
+        <span class="material-icons-round">search</span>
+        <span class="nav-label">검색</span>
+      </button>
+      <button class="nav-item" data-tab="favorites" id="nav-favorites">
+        <span class="material-icons-round">favorite_border</span>
+        <span class="nav-label">즐겨찾기</span>
+      </button>
+      <button class="nav-item" data-tab="mypage" id="nav-mypage">
+        <span class="material-icons-round">person_outline</span>
+        <span class="nav-label">마이페이지</span>
+      </button>
+    </nav>
+
+    <!-- Rerouting Modal Overlay -->
+    <div id="reroute-modal-overlay" class="reroute-modal-overlay" style="display: none;">
+      <div class="reroute-modal">
+        <div class="reroute-modal-header">
+          <span class="material-icons-round" style="color: var(--accent-brown); font-size: 24px;">warning</span>
+          <h3 style="margin: 0; font-size: 17px; font-weight: 750; color: #c62828;">목적지 만석/소음 급증 발생!</h3>
+        </div>
+        <div class="reroute-modal-content" style="margin-top: 12px; margin-bottom: 20px;">
+          <p style="margin: 0; font-size: 14px; line-height: 1.6; color: var(--gray-700);">이동 중인 카페의 실시간 쾌적도가 하락했습니다. 현재 필터 조건에 맞는 가장 가까운 대안 카페인 <strong id="reroute-alt-cafe-name" style="color: var(--accent-brown); font-weight: 700;">[자동 계산된 Green 카페 이름]</strong>으로 경로를 변경하시겠습니까?</p>
+        </div>
+        <div class="reroute-modal-actions" style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="btn-reroute-yes" class="btn-reroute-yes">네, 변경합니다</button>
+          <button id="btn-reroute-no" class="btn-reroute-no">아니오, 그냥 갈래요</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast element inside app -->
+    <div id="boss-toast" class="boss-toast">좌석 정보가 업데이트되었습니다.</div>
+
+  </div><!-- /app -->
+
+  <!-- Main JS Module -->
+  <script src="./main.js?v=29"></script>
+</body>
+
+</html>
